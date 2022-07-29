@@ -1,24 +1,18 @@
+# 桌面环境调研1
+
 kde、xfce、gnome
-
-
 
 原因之一是KDEConnect，它与安卓手机之间的互动比较好，目前没有发现其替代品。
 
- 经评论如网友提醒，现在GNOME也可以通过gsconnect与安卓互动，不过需要3.24及以上
+经评论如网友提醒，现在GNOME也可以通过gsconnect与安卓互动，不过需要3.24及以上
 
-
-
-session2.scope: start_kdeinit, kdeinit5, klauncher, kded5等
+session2.scope: start\_kdeinit, kdeinit5, klauncher, kded5等
 
 TODO：kde运行环境概览
 
 TODO：kframwork
 
 TODO：熟悉dde-service-manager，是否适合在这上面改造
-
-
-
-
 
 ```
 Control group /:
@@ -160,26 +154,19 @@ Control group /:
   │ └─562 avahi-daemon: chroot helper
   └─systemd-logind.service
     └─555 /lib/systemd/systemd-logind
-
 ```
 
-
-
-
-
-kinit 
+kinit
 
 桌面初始核心服务，启动加速、内存优化。
 
-> Using kdeinit to launch KDE applications makes starting a typical KDE
-> applications 2.5 times faster (100ms instead of 250ms on a P-III 500) It
-> reduces memory consumption by approx. 350Kb per application.
+> Using kdeinit to launch KDE applications makes starting a typical KDE applications 2.5 times faster (100ms instead of 250ms on a P-III 500) It reduces memory consumption by approx. 350Kb per application.
 
 原理：kinit链接所有标准KDE应用需要的库，通过先fork，然后以动态库方式加载KDE应用的方式，节省了kde应用去链接库这个步骤，以此达到启动优化目的。
 
 1， kinit主进程先fork再exec
 
-```c++
+```
 static pid_t launch(int argc, const char *_name, const char *args...
 {
     // ...
@@ -218,7 +205,7 @@ static pid_t launch(int argc, const char *_name, const char *args...
 
 2，插件的外部申明
 
-```c++
+```
 // 插件用kdemain替换main
 extern "C" int kdemain(int argc, char* argv[]);
 // kdeinitmain：插件以动态库的方式启动
@@ -227,95 +214,89 @@ extern "C" int kdeinitmain(int argc, char* argv[]) { return kdemain(argc,argv); 
 int main(int argc, char* argv[]) { return kdemain(argc,argv); }
 ```
 
-
-
 C/C++共享库的启动速度和分析
 
 模拟kinit原理，分别验证加载动态库运行和子进程运行对内存和启动速度的影响。
 
-demo源码：https://gitlabwh.uniontech.com/ut003444/cpp_plugin_demo
+demo源码：https://gitlabwh.uniontech.com/ut003444/cpp\_plugin\_demo
 
 1，测试变量：链接的很多不被使用的库${LIBS1}、${LIBS2}
 
-|                                                              | 虚拟内存(kb) | CODE(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
-| ------------------------------------------------------------ | ------------ | -------- | ------------ | ------------ | ------------ |
-| 一个只有main的进程，且不额外链接库                           | 7928         | 8        | 1992         | 1748         | 2            |
-| 一个只有main的进程，但会额外链接${LIBS1}、${LIBS2}共几十个库 | 328884       | 8        | 61224        | 49832        | 85           |
+|                                          | 虚拟内存(kb) | CODE(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
+| ---------------------------------------- | -------- | -------- | -------- | -------- | -------- |
+| 一个只有main的进程，且不额外链接库                      | 7928     | 8        | 1992     | 1748     | 2        |
+| 一个只有main的进程，但会额外链接${LIBS1}、${LIBS2}共几十个库 | 328884   | 8        | 61224    | 49832    | 85       |
 
 分析：
 
-- 链接过多会影响启动速度
-- 只链接动态库不用，大部分只是算在虚拟内存不会占用实际内存。而占用实际内存的大部分是占用的共享内存。
+* 链接过多会影响启动速度
+* 只链接动态库不用，大部分只是算在虚拟内存不会占用实际内存。而占用实际内存的大部分是占用的共享内存。
 
 2，插件测试
 
 测试1：插件和主进程一样的链接库
 
-| 测试变量               | 进程和插件                     | 虚拟内存(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
-| ---------------------- | ------------------------------ | ------------ | ------------ | ------------ | ------------ |
-| 不额外链接库           | 主进程                         | 7928         | 1992         | 1748         | 2            |
-| 不额外链接库           | 插件以子进程方式运行           | 5528         | 1656         | 1492         | 1            |
-| 不额外链接库           | 插件以动态库方式运行(-l)       | 7928         | 304          | 0            | 1            |
-| 链接${LIBS1}、${LIBS2} | 主进程                         | 328908       | 60712        | 49260        | 95           |
-| 链接${LIBS1}、${LIBS2} | 插件以子进程方式运行           | 328841       | 61588        | 50208        | 72           |
-| 链接${LIBS1}、${LIBS2} | 插件以动态库方式运行(-l)       | 328908       | 14316        | 2800         | 3            |
-| 链接${LIBS1}、${LIBS2} | 插件独立运行（不由主进程拉起） | 328904       | 61396        | 49996        | 75           |
+| 测试变量                | 进程和插件           | 虚拟内存(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
+| ------------------- | --------------- | -------- | -------- | -------- | -------- |
+| 不额外链接库              | 主进程             | 7928     | 1992     | 1748     | 2        |
+| 不额外链接库              | 插件以子进程方式运行      | 5528     | 1656     | 1492     | 1        |
+| 不额外链接库              | 插件以动态库方式运行(-l)  | 7928     | 304      | 0        | 1        |
+| 链接${LIBS1}、${LIBS2} | 主进程             | 328908   | 60712    | 49260    | 95       |
+| 链接${LIBS1}、${LIBS2} | 插件以子进程方式运行      | 328841   | 61588    | 50208    | 72       |
+| 链接${LIBS1}、${LIBS2} | 插件以动态库方式运行(-l)  | 328908   | 14316    | 2800     | 3        |
+| 链接${LIBS1}、${LIBS2} | 插件独立运行（不由主进程拉起） | 328904   | 61396    | 49996    | 75       |
 
 分析：
 
-- 无论插件是独立运行，还是由主进程拉起，只要是进程的方式，启动耗时都会很长，而以动态库方式运行则启动很快（共享了主进程的资源）
-- 无论插件是独立运行，还是由主进程拉起，只要和主进程链接的相同的库，那么会链接的库占用的共同的共享内存（动态库的机制，验证了系统内存只消耗了RSS-SHR的大小）
-- 插件以动态库方式运行，常驻内存很低，同样是因为共享了主进程资源。
-- 插件以子进程方式运行虽然和主进程共用了共享内存，但是都需要进行链接，都维护虚拟内存到共享内存的映射，但是插件以动态库方式运行时，插件无需额外处理链接库的事情，全部由主进程完成了。
+* 无论插件是独立运行，还是由主进程拉起，只要是进程的方式，启动耗时都会很长，而以动态库方式运行则启动很快（共享了主进程的资源）
+* 无论插件是独立运行，还是由主进程拉起，只要和主进程链接的相同的库，那么会链接的库占用的共同的共享内存（动态库的机制，验证了系统内存只消耗了RSS-SHR的大小）
+* 插件以动态库方式运行，常驻内存很低，同样是因为共享了主进程资源。
+* 插件以子进程方式运行虽然和主进程共用了共享内存，但是都需要进行链接，都维护虚拟内存到共享内存的映射，但是插件以动态库方式运行时，插件无需额外处理链接库的事情，全部由主进程完成了。
 
 测试2：插件链接更多的库
 
-| 测试变量               | 进程和插件           | 虚拟内存(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
-| ---------------------- | -------------------- | ------------ | ------------ | ------------ | ------------ |
-| 链接${LIBS1}           | 主进程               | 294980       | 52872        | 43532        | 79           |
-| 链接${LIBS1}、${LIBS2} | 插件以子进程方式运行 | 328904       | 61652        | 50268        | 76           |
+| 测试变量                | 进程和插件      | 虚拟内存(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
+| ------------------- | ---------- | -------- | -------- | -------- | -------- |
+| 链接${LIBS1}          | 主进程        | 294980   | 52872    | 43532    | 79       |
+| 链接${LIBS1}、${LIBS2} | 插件以子进程方式运行 | 328904   | 61652    | 50268    | 76       |
 
 分析：
 
-- 结论预期同测试1
+* 结论预期同测试1
 
 测试3：插件链接更多的库
 
-| 测试变量               | 进程和插件               | 虚拟内存(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
-| ---------------------- | ------------------------ | ------------ | ------------ | ------------ | ------------ |
-| 链接${LIBS1}           | 主进程                   | 328904       | 61692        | 50304        | 88           |
-| 链接${LIBS1}、${LIBS2} | 插件以动态库方式运行(-l) | 328904       | 13968        | 2452         | 1            |
+| 测试变量                | 进程和插件          | 虚拟内存(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
+| ------------------- | -------------- | -------- | -------- | -------- | -------- |
+| 链接${LIBS1}          | 主进程            | 328904   | 61692    | 50304    | 88       |
+| 链接${LIBS1}、${LIBS2} | 插件以动态库方式运行(-l) | 328904   | 13968    | 2452     | 1        |
 
 分析：
 
-- 结论预期同测试1，主进程会把链接的事情都做了，结合测试2，主进程内存占用增加到链接${LIBS1}、${LIBS2}应有的期望。
+* 结论预期同测试1，主进程会把链接的事情都做了，结合测试2，主进程内存占用增加到链接${LIBS1}、${LIBS2}应有的期望。
 
 测试4：对比测试3，以dlopen的方式加载动态库
 
-| 测试变量               | 进程和插件                   | 虚拟内存(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
-| ---------------------- | ---------------------------- | ------------ | ------------ | ------------ | ------------ |
-| 链接${LIBS1}           | 主进程                       | 294980       | 54116        | 44592        | 80           |
-| 链接${LIBS1}、${LIBS2} | 插件以动态库方式运行(dlopen) | 328832       | 31720        | 20208        | 50           |
+| 测试变量                | 进程和插件              | 虚拟内存(kb) | 常驻内存(kb) | 共享内存(kb) | 启动耗时(ms) |
+| ------------------- | ------------------ | -------- | -------- | -------- | -------- |
+| 链接${LIBS1}          | 主进程                | 294980   | 54116    | 44592    | 80       |
+| 链接${LIBS1}、${LIBS2} | 插件以动态库方式运行(dlopen) | 328832   | 31720    | 20208    | 50       |
 
 分析：
 
-- 测试4，结论预期符合测试2和测试3的结合，dlopen是运行态加载插件的动态库，因此主进程只处理${LIBS1}的链接，同时插件不再处理${LIBS1}，交给了主进程，在运行过程中加载插件动态库时再去处理${LIBS2}的链接
-
-
+* 测试4，结论预期符合测试2和测试3的结合，dlopen是运行态加载插件的动态库，因此主进程只处理${LIBS1}的链接，同时插件不再处理${LIBS1}，交给了主进程，在运行过程中加载插件动态库时再去处理${LIBS2}的链接
 
 3，结论
 
-- 如果插件以子进程方式运行，那么在内存和启动速度角度，跟插件独立运行基本没啥区别。
-- 如果插件以动态库方式运行，由于共享内存机制，对于节约内存实际也没多大作用，但是对启动速度确实有很大的提升。
-- 如果插件以动态库方式运行，只能用类似dlopen方式运行态加载动态库，否则会导致主进程甚至把暂时不会用到的插件的链接库也加载了，造成严重浪费。
-
-
+* 如果插件以子进程方式运行，那么在内存和启动速度角度，跟插件独立运行基本没啥区别。
+* 如果插件以动态库方式运行，由于共享内存机制，对于节约内存实际也没多大作用，但是对启动速度确实有很大的提升。
+* 如果插件以动态库方式运行，只能用类似dlopen方式运行态加载动态库，否则会导致主进程甚至把暂时不会用到的插件的链接库也加载了，造成严重浪费。
 
 kinit续
 
 kinit加载动态库的方式虽然有一些好处，但是会导致插件的进程名变成kinit，因此导致如无法用killall 插件名来杀掉插件进程，kde实现了kdekillall来解决这个问题。但是从目前kde环境来看，类似klauncher等插件进程，都是直接以子进程的方式启动的，并不是用的动态库的方式。
 
-```c++
+```
 static void start_klauncher()
 {
     // ...
@@ -324,41 +305,26 @@ static void start_klauncher()
 }
 ```
 
-
-
 kded
 
 kded插件化加载dbus服务原理
 
-- 核心两个因素
+* 核心两个因素
 
->1，插件是一个动态库，kded通过QPluginLoader加载动态库（类似dlopen）
+> 1，插件是一个动态库，kded通过QPluginLoader加载动态库（类似dlopen）
 >
->2，通过修改qtdbus源码，增加kded的回调hook，来实现按需启动
+> 2，通过修改qtdbus源码，增加kded的回调hook，来实现按需启动
 
+* kded官方不建议随意增加module，会降低稳定性
 
-
-- kded官方不建议随意增加module，会降低稳定性
-
->A KDED module is loaded when a call is made to it.
->KDED modules should not be added if it is avoidable because (especially
->when new) they endanger the stability of KDED and its other modules which
->provide important services. There are other ways to achieve what a KDED
->module can do in many cases.
->KDED modules should be useful during the whole session and manage
->information that, for some reason, cannot be kept in any other process.
+> A KDED module is loaded when a call is made to it. KDED modules should not be added if it is avoidable because (especially when new) they endanger the stability of KDED and its other modules which provide important services. There are other ways to achieve what a KDED module can do in many cases. KDED modules should be useful during the whole session and manage information that, for some reason, cannot be kept in any other process.
 >
->by  https://invent.kde.org/frameworks/kded/-/blob/master/docs/HOWTO
+> by https://invent.kde.org/frameworks/kded/-/blob/master/docs/HOWTO
 
+*   缺点
 
-
-- 缺点
-
-  TODO
-
-
-
-- Module配置文件（最新neon系统的kde环境并没用到该配置）
+    TODO
+* Module配置文件（最新neon系统的kde环境并没用到该配置）
 
 ```shell
 # A KDED module should install a .desktop file with
@@ -374,15 +340,13 @@ X-KDE-Library=foo
 # The .desktop file should be installed to ${SERVICES_INSTALL_DIR}/kded
 ```
 
-
-
-- kded怎么按需启动？
+* kded怎么按需启动？
 
 1，qtbase在分发dbus请求前，增加hook处理
 
 qtbase提供注册方法：
 
-```c++
+```
 // qtbase/src/dbus/qdbusintegrator.cpp
 extern Q_DBUS_EXPORT void qDBusAddSpyHook(QDBusSpyCallEvent::Hook);
 void qDBusAddSpyHook(QDBusSpyCallEvent::Hook hook)
@@ -391,11 +355,9 @@ void qDBusAddSpyHook(QDBusSpyCallEvent::Hook hook)
 }
 ```
 
-
-
 qtbase根据注册的hook，在dbus分发时预处理：
 
-```c++
+```
 // qtbase/src/dbus/qdbusintegrator.cpp
 bool QDBusConnectionPrivate::handleMessage(const QDBusMessage &amsg)
 {
@@ -425,7 +387,7 @@ bool QDBusConnectionPrivate::handleMessage(const QDBusMessage &amsg)
 
 2，kded注册hook，按需启动的Module被调用时，即时loadModule，为该module加载dbus服务（registerObject）
 
-```c++
+```
 // kded/src/kded.cpp
 qDBusAddSpyHook(messageFilter);
 
@@ -449,11 +411,7 @@ void Kded::messageFilter(const QDBusMessage &message)
 }
 ```
 
-
-
-
-
-```c++
+```
 void KDEDModule::setModuleName(const QString &name)
 {
     d->moduleName = name;
@@ -494,11 +452,7 @@ void KDEDModule::setModuleName(const QString &name)
 }
 ```
 
-
-
-
-
-- kded的Module插件怎么实现？
+* kded的Module插件怎么实现？
 
 1，dbus封装。
 
@@ -510,24 +464,16 @@ module会继承kdeframeworks中的KDBusAddons，KDBusAddons处理dbus事务，mo
 
 module注册插件，
 
-```c++
+```
 // 类似Q_PLUGIN_METADATA
 K_PLUGIN_FACTORY_WITH_JSON(KWritedFactory, "ModuleName.json", registerPlugin<KWritedModule>();)
 ```
 
 kded会用到kdeframeworks中的KCoreAddons，KCoreAddons通过QPluginLoader搜索及加载module插件，根据插件组册的json中"X-KDE-Kded-load-on-demand"属性，判断是否按需启动。
 
-
-
 kframework
 
-
-
 kded总结
-
-
-
-
 
 gnome
 
@@ -686,7 +632,6 @@ Control group /:
 │     ├─1488 /usr/libexec/gdm-wayland-session env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --session=ubuntu
 │     └─1500 /usr/libexec/gnome-session-binary --session=ubuntu
 
-
 ```
 
 gnome没有一个通用的服务框架，或者说服务框架就是systemd，每一个服务基本都是独立的进程，以service的方式运行。
@@ -707,24 +652,11 @@ gnome-setting-daemon
 #include "gsd-datetime-manager.h"
 
 #include "daemon-skeleton.h" // 通用封装，会调用NEW、START、STOP等
-
 ```
 
-
-
-
-
-
-
-
-
----
+***
 
 dlclose调研
-
-
-
-
 
 动态库方式运行时，如果有循环之类的没释放，调用dlclose会崩溃'
 
@@ -732,88 +664,53 @@ double dlclose会崩 - 判断?
 
 正在运行 dlclose会崩 ，
 
-正确释放资源的方法？  -- 子进程加载，子进程退出
+正确释放资源的方法？ -- 子进程加载，子进程退出
 
 正确退出的方法？
 
-
-
 kded：同线程加载module，卸载没有处理
-
-
 
 接口兼容性考虑
 
-
-
-- 双重init -- oom_protect
-- dlopen -- launcher qplugeloader
+* 双重init -- oom\_protect
+* dlopen -- launcher qplugeloader
 
 关闭方式
 
 AM重启
 
+dlclose描述
 
-
-dlclose描述 
-
- https://pubs.opengroup.org/onlinepubs/9699919799/functions/dlclose.html
+https://pubs.opengroup.org/onlinepubs/9699919799/functions/dlclose.html
 
 https://www.icode9.com/content-4-489342.html
 
-
-
 子进程崩溃
 
+***
 
+*   二级模块按需启动：不同sdk的情况
 
+    不同sdk使用同一个连接？不能
 
+    不同连接使用同一个服务？不行，只能替换
 
----
+    因此，同servicename的插件，只允许用同一个sdk。不止在服务框架内，对于servicename，目前所有服务命名都没有约束，也没有验重机制，都是人为避免这种情况。服务框架可以提供在安装时校验是否合法？
+*   插件类型识别及对应处理
 
+    1级不需要识别，2级也不需要识别依靠sdk关联
+*   dlclose问题（崩溃、释放内存）
 
-
-
-
-- 二级模块按需启动：不同sdk的情况
-
-  不同sdk使用同一个连接？不能
-
-  不同连接使用同一个服务？不行，只能替换
-
-  因此，同servicename的插件，只允许用同一个sdk。不止在服务框架内，对于servicename，目前所有服务命名都没有约束，也没有验重机制，都是人为避免这种情况。服务框架可以提供在安装时校验是否合法？
-
-  
-
-- 插件类型识别及对应处理
-
-  1级不需要识别，2级也不需要识别依靠sdk关联
-
-- dlclose问题（崩溃、释放内存）
-
-  ？？？貌似kded没unload
-
-- 1
-
-
-
-
+    ？？？貌似kded没unload
+* 1
 
 dlclose问题（崩溃、释放内存）
 
-​     ？？？貌似kded没unload
+​ ？？？貌似kded没unload
 
-
-
-​     
-
-
+​
 
 system和session
-
-
-
-
 
 1，dbus的按需启动
 
@@ -843,15 +740,7 @@ interface：可以自动，也可以指定
 
 method：
 
-
-
 &&&&&&&多语言封装
-
-
-
-
-
-
 
 3，dbus的servicename唯一问题
 
@@ -859,41 +748,33 @@ method：
 
 同一个servicename只能同时被一个连接拥有；
 
-
-
 1，结合systemd
 
 2，按需启动（只针对dbus？依赖？）
 
-- 参考
+*   参考
 
-  dde-daemon：依赖
+    dde-daemon：依赖
 
-  kinit：无按需
+    kinit：无按需
 
-  kded：qtbase
+    kded：qtbase
 
-  gnome-settings-daemon：
+    gnome-settings-daemon：
+*   启动：
 
-- 启动：
+    dbus可支持
+* 退出
 
-  dbus可支持
-
-- 退出
-
-
-
----
+***
 
 dbus service
 
-
-
----
+***
 
 没有按需启动、Info、ExitCB、dbusService前置
 
----
+***
 
 system和session、按需加载、插件生命周期（IDLE接口）、会话（加密和权限）、权限管理等也是插件
 
