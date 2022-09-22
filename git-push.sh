@@ -1,5 +1,5 @@
 #!/bin/bash
-book sm
+# book sm
 git add -A
 git commit -m "update"
 git push

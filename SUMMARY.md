@@ -18,5 +18,5 @@
     * [Systemd](linux/Linux系统开发/systemd.md)
   - Liunx理论基础
     * [(转)基础1 linux进程组(job)](linux/Liunx理论基础/(转)基础1%20linux进程组(job).md)
-    * [(转)容器和权限1：linux cgroups 简介](linux/Liunx理论基础/(转)容器和权限1：linux%20cgroups 简介.md)
+    * [(转)容器和权限1：linux cgroups 简介](linux/Liunx理论基础/(转)容器和权限1：linux cgroups 简介.md)
     * [(转)容器和权限2：Cgroups 与 Systemd](linux/Liunx理论基础/(转)容器和权限2：Cgroups%20与 Systemd.md)
