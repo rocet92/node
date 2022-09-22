@@ -1,4 +1,6 @@
 #!/bin/bash
+echo "-------node push--------"
+echo "generate SUMMARY"
 book sm
 
 # book bug，文件名有空格只会转义第一个
@@ -17,12 +19,13 @@ do
 done < SUMMARY.md
 for file in "${ErrorFile[@]}"
 do
-    echo $file
+    echo "SUMMARY fix, FROM:""$file"
     newfile=$(echo "$file" | sed -r "s/ /%20/g")
-    echo $newfile
+    echo "SUMMARY fix, TO:""$newfile"
     sed -i "s?$file?$newfile?g" SUMMARY.md
 done
 
 git add -A
 git commit -m "update"
 git push
+echo "---------------------"
