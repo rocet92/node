@@ -7,7 +7,7 @@ d-feet是dbus的一个调试工具。它可以显示service提供的所有对象
 
 在uos的安装方法，应用商店下载或者命令行输入：
 ```
-sudo apt install dconf-editor
+sudo apt install d-feet
 ```
 
 ### 2 dconf-editor
