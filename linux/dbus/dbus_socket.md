@@ -697,7 +697,7 @@ dfeet的Path寻址：
 
 
 
-7，dbus的按需启动
+7，dbus的按需启动和权限控制
 
 某个程序1（也可以是插件），提供dbus服务，如ServerName="com.demo"，Path="/com/demo"，Interface="com.demo"，Method={"Hello"}
 
@@ -721,9 +721,11 @@ dfeet的Path寻址：
 
 DbusServer方案：
 
-![image-20220727095612956](.mdImages/image-20220727095612956.png)
+![image-20221028105256304](.mdImages/image-20221028105256304.png)
 
 以qtdbus为例，"Dbus总线"通过socket把调用数据发给"DbusServer"后，正常流程可以没有hook和adapter环节，"DbusServer"获取数据后，解析数据，然后通过dispatch根据数据类型，把调用请求分发给object，object为具体的提供业务功能的对象；
+
+- dbus-daemon方案
 
 - hook方案
 
@@ -772,24 +774,5 @@ DbusServer方案：
   （2）使用QDBusVirtualObject
 
   每个插件独立的dbus连接->注册插件的服务->注册VirtualObject,并监控调用请求->处理请求, 取消VirtualObject的注册,注册实际对象-> [MetaCall 处理当前调用] or [VirtualObject返false, 不确定实际对象能否接管处理流程?]
-
-
-
-1,qtdbus
-
-2, qtadptor做了什么
-
-3，qtdbusextend做了什么
-
-4,qtdbusextend为什么不包含qtadaptor
-
-5， QDBusVirtualObject
-
-
-
-
-
-
-
 
 
